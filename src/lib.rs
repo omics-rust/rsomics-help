@@ -1,11 +1,8 @@
-pub mod ansi;
-pub mod banner;
-pub mod modes;
-pub mod render;
-pub mod spec;
+#![forbid(unsafe_code)]
 
-pub use ansi::no_color_env;
-pub use banner::{Banner, Gradient};
-pub use modes::{HelpMode, detect_mode, intercept_help};
-pub use render::render;
-pub use spec::{Example, FlagSpec, HELP_SCHEMA_VERSION, HelpSpec, Origin, Section};
+//! Unified command-line interaction and presentation for rsomics products.
+//! Products define one Clap command tree and parse it through [`parse`].
+
+mod cli;
+
+pub use cli::{command, parse, try_parse, try_parse_from};

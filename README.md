@@ -1,52 +1,51 @@
 # rsomics-help
 
-Layer-A foundation crate: family-wide `--help` renderer for every
-`rsomics-*` CLI.
+`rsomics-help` is the Layer-A command-line UX adapter for rsomics products.
+It applies one visual and interaction grammar to the real Clap command tree:
+top-level and nested help, version output, help navigation, suggestions, and
+argument errors.
 
-Binaries declare a `HelpSpec` data literal — name, version, tagline,
-usage lines, flag tables, examples — and hand it to `render(&spec, mode)`.
-This crate owns all formatting decisions: figlet banner with
-width-adaptive font + pikpaktui-style cyan→magenta gradient, ANSI section
-headers, three output modes (Rich / Plain / JSON), and the
-`detect_mode` priority chain (NO_COLOR → !isatty → --plain → --json).
+There is no parallel help specification. Names, flags, defaults, constraints,
+value hints, subcommands, descriptions, and usage all come from the same
+command tree that performs parsing.
 
 ```rust
-use rsomics_help::{HelpSpec, Section, FlagSpec, Example, HelpMode, intercept_help, render};
+use clap::{Parser, Subcommand};
 
-const HELP: HelpSpec = HelpSpec {
-    name: "rsomics-example",
-    version: "0.1.0",
-    tagline: "Example tool.",
-    origin: None,
-    usage_lines: &["[OPTIONS] <FILE>"],
-    sections: &[Section { title: "OPTIONS", flags: &[/* … */] }],
-    examples: &[Example { description: "basic", command: "rsomics-example a.fa" }],
-    json_result_schema_doc: None,
-};
+#[derive(Parser)]
+#[command(name = "rsomics-example", version, about = "Example product")]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
 
-fn main() -> std::process::ExitCode {
-    let argv: Vec<String> = std::env::args().collect();
-    if let Some(mode) = intercept_help(&argv) {
-        render(&HELP, mode);
-        return std::process::ExitCode::SUCCESS;
-    }
-    // … real CLI parsing and pipeline …
-    std::process::ExitCode::SUCCESS
+#[derive(Subcommand)]
+enum Command {
+    /// Inspect a sequence file.
+    Inspect { input: String },
+}
+
+fn main() {
+    let _cli = rsomics_help::parse::<Cli>();
 }
 ```
 
-## Modes
+Products may use normal Clap `long_about`, `after_help`, help headings, and
+value metadata for domain-specific explanation and examples. `rsomics-help`
+does not ask them to repeat a flag table.
 
-| Mode | When | Output |
-|---|---|---|
-| `Rich` | TTY + colour OK | figlet banner + 24-bit RGB gradient + bold section headers |
-| `Plain` | `--plain`, `NO_COLOR`, or stdout-isn't-a-tty | compact ASCII, em-dash tagline, ALL-CAPS sections, no colour |
-| `Json` | `--json` | structured envelope with `schema_version` for AI consumers |
+## Output policy
 
-## External deps (4-quadrant classification)
+- A terminal receives the shared rsomics color palette.
+- Redirected output remains plain.
+- `NO_COLOR` disables ANSI presentation.
+- Help and version use Clap's successful exits.
+- Invalid command lines keep Clap's status-2 behavior and contextual
+  suggestions.
+- Runtime result envelopes, domain errors, and their exit-code mapping belong
+  to `rsomics-common`.
 
-- `figlet-rs` — Quadrant ① (pure Rust, no FFI).
-- `terminal_size` — Quadrant ①.
-- `serde`, `serde_json` — Quadrant ④.
+The old `HelpSpec` renderer was removed in 0.4 because it duplicated the
+parser, drifted on nested commands, and made Layer-B integration harder.
 
 License: MIT OR Apache-2.0.
